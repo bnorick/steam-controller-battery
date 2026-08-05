@@ -1,0 +1,6 @@
+.zig-cache/
+.agents/
+.codex/
+.zig-global-cache/
+zig-out/
+annex/
