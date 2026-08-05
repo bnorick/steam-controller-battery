@@ -4,3 +4,6 @@ zig = "0.15"
 
 [tasks.build]
 run = "zig build --global-cache-dir .zig-global-cache -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe"
+
+[tasks.build-sdl-test]
+run = "zig build sdl-testcontroller -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe"
