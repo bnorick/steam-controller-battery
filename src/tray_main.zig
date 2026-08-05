@@ -49,6 +49,7 @@ const SharedState = struct {
     mutex: std.Thread.Mutex = .{},
     shutdown: bool = false,
     refresh_requested: bool = false,
+    refresh_pending: bool = false,
     version: u64 = 0,
     snapshot: Snapshot = .{},
 };
@@ -76,8 +77,11 @@ const App = struct {
 
     fn requestRefresh(self: *App) void {
         self.shared.mutex.lock();
+        defer self.shared.mutex.unlock();
+
         self.shared.refresh_requested = true;
-        self.shared.mutex.unlock();
+        self.shared.refresh_pending = true;
+        self.shared.version += 1;
     }
 
     fn takeRefreshRequest(self: *App) bool {
@@ -169,7 +173,7 @@ fn registerWindowClass(instance: win.HINSTANCE) !void {
 }
 
 fn initTrayIcon(app: *App) !void {
-    app.current_icon = createTrayIcon(null, sdl.SDL_POWERSTATE_UNKNOWN) orelse return error.CreateIconFailed;
+    app.current_icon = createTrayIcon(null, sdl.SDL_POWERSTATE_UNKNOWN, false) orelse return error.CreateIconFailed;
 
     app.nid.cbSize = @sizeOf(win.NOTIFYICONDATAA);
     app.nid.hWnd = app.hwnd;
@@ -194,16 +198,18 @@ fn removeTrayIcon(app: *App) void {
 
 fn refreshTrayIcon(app: *App, force: bool) !void {
     var snapshot: Snapshot = undefined;
+    var refresh_pending = false;
     var version: u64 = 0;
 
     app.shared.mutex.lock();
     snapshot = app.shared.snapshot;
+    refresh_pending = app.shared.refresh_pending;
     version = app.shared.version;
     app.shared.mutex.unlock();
 
     if (!force and version == app.last_version) return;
 
-    const next_icon = createTrayIcon(snapshot.battery_percent, snapshot.power_state) orelse return error.CreateIconFailed;
+    const next_icon = createTrayIcon(snapshot.battery_percent, snapshot.power_state, refresh_pending) orelse return error.CreateIconFailed;
     const previous_icon = app.current_icon;
 
     app.current_icon = next_icon;
@@ -211,7 +217,7 @@ fn refreshTrayIcon(app: *App, force: bool) !void {
     app.nid.hIcon = next_icon;
 
     var tooltip_buffer: [128]u8 = undefined;
-    const tooltip = buildTooltip(&tooltip_buffer, snapshot);
+    const tooltip = buildTooltip(&tooltip_buffer, snapshot, refresh_pending);
     setTooltip(&app.nid, tooltip);
 
     if (win.Shell_NotifyIconA(win.NIM_MODIFY, &app.nid) == 0) {
@@ -225,31 +231,33 @@ fn refreshTrayIcon(app: *App, force: bool) !void {
     app.last_version = version;
 }
 
-fn buildTooltip(buffer: []u8, snapshot: Snapshot) [:0]const u8 {
+fn buildTooltip(buffer: []u8, snapshot: Snapshot, refresh_pending: bool) [:0]const u8 {
+    const suffix = if (refresh_pending) " (Refreshing...)" else "";
+
     if (!snapshot.connected) {
-        return std.fmt.bufPrintZ(buffer, "Steam Controller Battery: disconnected", .{}) catch "Steam Controller Battery";
+        return std.fmt.bufPrintZ(buffer, "Steam Controller Battery: disconnected{s}", .{suffix}) catch "Steam Controller Battery";
     }
 
     if (snapshot.battery_percent) |percent| {
         return std.fmt.bufPrintZ(
             buffer,
-            "Steam Controller Battery: {d}% ({d} ms)",
-            .{ percent, snapshot.wait_ms },
+            "Steam Controller Battery: {d}%{s}",
+            .{ percent, suffix },
         ) catch "Steam Controller Battery";
     }
 
     if (snapshot.timed_out) {
         return std.fmt.bufPrintZ(
             buffer,
-            "Steam Controller Battery: unknown ({d} ms timeout)",
-            .{snapshot.wait_ms},
+            "Steam Controller Battery: unknown{s}",
+            .{suffix},
         ) catch "Steam Controller Battery";
     }
 
     return std.fmt.bufPrintZ(
         buffer,
-        "Steam Controller Battery: unknown ({d} ms)",
-        .{snapshot.wait_ms},
+        "Steam Controller Battery: unknown{s}",
+        .{suffix},
     ) catch "Steam Controller Battery";
 }
 
@@ -288,6 +296,7 @@ fn updateSnapshot(app: *App, snapshot: Snapshot) void {
     defer app.shared.mutex.unlock();
 
     app.shared.snapshot = snapshot;
+    app.shared.refresh_pending = false;
     app.shared.version += 1;
 }
 
@@ -388,7 +397,7 @@ fn applyHints(options: Options) void {
     }
 }
 
-fn createTrayIcon(percent: ?u8, power_state: sdl.SDL_PowerState) ?win.HICON {
+fn createTrayIcon(percent: ?u8, power_state: sdl.SDL_PowerState, refresh_pending: bool) ?win.HICON {
     const screen_dc = win.GetDC(null);
     if (screen_dc == null) return null;
     defer _ = win.ReleaseDC(null, screen_dc);
@@ -421,6 +430,30 @@ fn createTrayIcon(percent: ?u8, power_state: sdl.SDL_PowerState) ?win.HICON {
     if (brush == null) return null;
     defer _ = win.DeleteObject(brush);
     _ = win.FillRect(mem_dc, &rect, brush);
+
+    if (refresh_pending) {
+        const triangle_brush = win.CreateSolidBrush(win.RGB(0x00, 0x00, 0x00));
+        if (triangle_brush == null) return null;
+        defer _ = win.DeleteObject(triangle_brush);
+
+        const old_brush = win.SelectObject(mem_dc, triangle_brush);
+        defer _ = win.SelectObject(mem_dc, old_brush);
+
+        const pen = win.CreatePen(win.PS_NULL, 0, 0);
+        if (pen == null) return null;
+        defer _ = win.DeleteObject(pen);
+
+        const old_pen = win.SelectObject(mem_dc, pen);
+        defer _ = win.SelectObject(mem_dc, old_pen);
+
+        const badge_size = 10;
+        var triangle = [_]win.POINT{
+            .{ .x = icon_size - badge_size, .y = 0 },
+            .{ .x = icon_size, .y = 0 },
+            .{ .x = icon_size, .y = badge_size },
+        };
+        _ = win.Polygon(mem_dc, &triangle, triangle.len);
+    }
 
     _ = win.SetBkMode(mem_dc, win.TRANSPARENT);
     _ = win.SetTextColor(mem_dc, chooseTextColor(percent, power_state));
