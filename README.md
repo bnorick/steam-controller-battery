@@ -4,7 +4,7 @@ I think it's silly that there isn't an easy way to check the battery level of a 
 
 ![System tray icon example](assets/screenshot.png)
 
-Left click to trigger a refresh, right click for a menu (refresh, launch at startup, quit).
+**Usage:** Left click to trigger a refresh, right click for a menu (refresh, launch at startup, quit).
 
 You can [download](https://github.com/bnorick/steam-controller-battery/releases/latest) binaries for the latest release. This repo currently builds two Windows executables (build them yourself if you don't trust my binaries, it's easy):
 
@@ -68,10 +68,11 @@ steam-controller-battery-tray.exe --interval 15000 --battery-wait-ms 5000
 
 Useful tray app flags:
 
-- `--interval <ms>`: how often to refresh battery state, default `60000`
-- `--battery-wait-ms <ms>`: how long to wait for battery telemetry before giving up, default `10000`
-- `--enable-autostart`: register the tray app in the current user's Windows startup entries and exit
-- `--disable-autostart`: remove the tray app from the current user's Windows startup entries and exit
+- `--interval <ms>`: how often to refresh battery state, default `15000`
+- `--battery-wait-ms <ms>`: how long to wait for battery telemetry before giving up, default `5000`
+- `--debug`: open Settings with the runtime debug-logging control visible
+- `--autostart`: register the tray app in the current user's Windows startup entries and exit
+- `--no-autostart`: remove the tray app from the current user's Windows startup entries and exit
 
 ## Console Tool
 

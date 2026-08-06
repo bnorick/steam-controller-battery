@@ -5,3 +5,4 @@
 zig-out/
 annex/
 mise.local.toml
+.ignore

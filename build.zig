@@ -4,7 +4,25 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const dvui = b.dependency("dvui", .{
+        .target = target,
+        .optimize = optimize,
+        .backend = .sdl3,
+    });
+
     const sdl = b.dependency("sdl", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // A small named-pipe singleton, following fizzy's ownership model.
+    const app = b.createModule(.{
+        .root_source_file = b.path("src/app.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const app_assets = b.createModule(.{
+        .root_source_file = b.path("assets.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -23,7 +41,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("sdl3", sdl.module("sdl3"));
 
     b.installArtifact(exe);
-    addWindowsTrayApp(b, target, optimize, sdl);
+    addWindowsTrayApp(b, target, optimize, sdl, dvui, app, app_assets);
 
     addSdlTestController(b, target, optimize, sdl);
 
@@ -43,6 +61,9 @@ fn addWindowsTrayApp(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     sdl: *std.Build.Dependency,
+    dvui: *std.Build.Dependency,
+    app: *std.Build.Module,
+    app_assets: *std.Build.Module,
 ) void {
     if (target.result.os.tag != .windows) return;
 
@@ -57,6 +78,10 @@ fn addWindowsTrayApp(
     });
 
     tray.root_module.addImport("sdl3", sdl.module("sdl3"));
+    tray.root_module.addImport("dvui", dvui.module("dvui_sdl3"));
+    tray.root_module.addImport("sdl-backend", dvui.module("sdl3"));
+    tray.root_module.addImport("app", app);
+    tray.root_module.addImport("app_assets", app_assets);
     tray.subsystem = .Windows;
     tray.linkSystemLibrary("user32");
     tray.linkSystemLibrary("gdi32");
