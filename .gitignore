@@ -4,3 +4,4 @@
 .zig-global-cache/
 zig-out/
 annex/
+mise.local.toml

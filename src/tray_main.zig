@@ -21,8 +21,6 @@ const steam_controller_product_id: u16 = 0x1304;
 const Options = struct {
     interval_ms: u32 = 60_000,
     battery_wait_ms: u32 = 10_000,
-    force_hidapi_steam: bool = false,
-    disable_rawinput: bool = false,
     autostart_action: enum {
         none,
         enable,
@@ -269,8 +267,6 @@ fn setTooltip(nid: *win.NOTIFYICONDATAA, text: [:0]const u8) void {
 }
 
 fn batteryWorkerMain(app: *App) void {
-    applyHints(app.options);
-
     if (!sdl.SDL_Init(sdl.SDL_INIT_GAMEPAD)) {
         updateSnapshot(app, .{});
         return;
@@ -383,17 +379,6 @@ fn queryBatteryInfo(
 
         sdl.SDL_Delay(battery_probe_interval_ms);
         elapsed_ms += battery_probe_interval_ms;
-    }
-}
-
-fn applyHints(options: Options) void {
-    if (options.force_hidapi_steam) {
-        _ = sdl.SDL_SetHint(sdl.SDL_HINT_JOYSTICK_HIDAPI, "1");
-        _ = sdl.SDL_SetHint(sdl.SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
-    }
-
-    if (options.disable_rawinput) {
-        _ = sdl.SDL_SetHint(sdl.SDL_HINT_JOYSTICK_RAWINPUT, "0");
     }
 }
 
@@ -574,11 +559,7 @@ fn parseArgs() !Options {
     _ = args.next();
 
     while (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, "--force-hidapi-steam")) {
-            result.force_hidapi_steam = true;
-        } else if (std.mem.eql(u8, arg, "--disable-rawinput")) {
-            result.disable_rawinput = true;
-        } else if (std.mem.eql(u8, arg, "--enable-autostart")) {
+        if (std.mem.eql(u8, arg, "--enable-autostart")) {
             result.autostart_action = .enable;
         } else if (std.mem.eql(u8, arg, "--disable-autostart")) {
             result.autostart_action = .disable;
@@ -606,8 +587,6 @@ fn printUsage() void {
         \\  steam-controller-battery-tray
         \\  steam-controller-battery-tray --interval MILLISECONDS
         \\  steam-controller-battery-tray --battery-wait-ms MILLISECONDS
-        \\  steam-controller-battery-tray --force-hidapi-steam
-        \\  steam-controller-battery-tray --disable-rawinput
         \\  steam-controller-battery-tray --enable-autostart
         \\  steam-controller-battery-tray --disable-autostart
         \\

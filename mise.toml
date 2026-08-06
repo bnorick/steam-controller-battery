@@ -1,5 +1,4 @@
 [tools]
-codex = "latest"
 zig = "0.15"
 
 [tasks.build]

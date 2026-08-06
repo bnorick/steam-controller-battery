@@ -7,8 +7,6 @@ const Options = struct {
     interval_ms: u32 = 5000,
     battery_wait_ms: u32 = 3000,
     diagnostics: bool = false,
-    force_hidapi_steam: bool = false,
-    disable_rawinput: bool = false,
 };
 
 const BatteryInfo = struct {
@@ -22,8 +20,6 @@ const battery_probe_interval_ms = 25;
 
 pub fn main() !void {
     const options = try parseArgs();
-
-    applyHints(options);
 
     if (!sdl.SDL_Init(sdl.SDL_INIT_GAMEPAD)) {
         std.log.err("SDL_Init failed: {s}", .{sdl.SDL_GetError()});
@@ -41,17 +37,6 @@ pub fn main() !void {
         // Let SDL process pending device discovery before enumerating.
         sdl.SDL_PumpEvents();
         try printControllers(options);
-    }
-}
-
-fn applyHints(options: Options) void {
-    if (options.force_hidapi_steam) {
-        _ = sdl.SDL_SetHint(sdl.SDL_HINT_JOYSTICK_HIDAPI, "1");
-        _ = sdl.SDL_SetHint(sdl.SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
-    }
-
-    if (options.disable_rawinput) {
-        _ = sdl.SDL_SetHint(sdl.SDL_HINT_JOYSTICK_RAWINPUT, "0");
     }
 }
 
@@ -193,24 +178,6 @@ fn printGamepad(
         .{sdl.SDL_GetNumGamepadTouchpads(gamepad)},
     );
 
-    if (options.diagnostics) {
-        try writer.writeAll("  diagnostics:     ");
-
-        if (options.force_hidapi_steam) {
-            try writer.writeAll("force-hidapi-steam ");
-        }
-
-        if (options.disable_rawinput) {
-            try writer.writeAll("disable-rawinput ");
-        }
-
-        if (!options.force_hidapi_steam and !options.disable_rawinput) {
-            try writer.writeAll("default-backend-selection");
-        }
-
-        try writer.writeByte('\n');
-    }
-
     if (virtual_steam_gamepad) {
         try writer.writeAll(
             "  note:            Steam Virtual Gamepad; physical battery " ++
@@ -312,10 +279,6 @@ fn parseArgs() !Options {
             result.watch = true;
         } else if (std.mem.eql(u8, arg, "--diagnostics")) {
             result.diagnostics = true;
-        } else if (std.mem.eql(u8, arg, "--force-hidapi-steam")) {
-            result.force_hidapi_steam = true;
-        } else if (std.mem.eql(u8, arg, "--disable-rawinput")) {
-            result.disable_rawinput = true;
         } else if (std.mem.eql(u8, arg, "--battery-wait-ms")) {
             const value = args.next() orelse {
                 printUsage();
@@ -360,16 +323,12 @@ fn printUsage() void {
         \\Usage:
         \\  steam-controller-battery
         \\  steam-controller-battery --diagnostics
-        \\  steam-controller-battery --diagnostics --force-hidapi-steam
-        \\  steam-controller-battery --diagnostics --force-hidapi-steam --disable-rawinput
         \\  steam-controller-battery --diagnostics --battery-wait-ms 5000
         \\  steam-controller-battery --watch
         \\  steam-controller-battery --watch --interval MILLISECONDS
         \\
         \\Options:
         \\  --diagnostics         Print SDL revision and relevant backend hints
-        \\  --force-hidapi-steam  Set SDL_JOYSTICK_HIDAPI=1 and SDL_JOYSTICK_HIDAPI_STEAM=1 before SDL_Init
-        \\  --disable-rawinput    Set SDL_JOYSTICK_RAWINPUT=0 before SDL_Init
         \\  --battery-wait-ms     Wait this long for battery telemetry before printing, default 3000
         \\
     , .{});
