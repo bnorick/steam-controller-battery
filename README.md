@@ -6,7 +6,7 @@ I think it's silly that there isn't an easy way to check the battery level of a 
 
 Left click to trigger a refresh, right click for a menu (refresh, launch at startup, quit).
 
-This repo currently builds two Windows executables (build them yourself if you don't trust my binaries, it's easy):
+You can [download](https://github.com/bnorick/steam-controller-battery/releases/latest) binaries for the latest release. This repo currently builds two Windows executables (build them yourself if you don't trust my binaries, it's easy):
 
 - `steam-controller-battery.exe`: console app for enumerating SDL gamepads and printing battery information
 - `steam-controller-battery-tray.exe`: Windows tray app that shows Steam Controller battery state in the notification area
