@@ -2,12 +2,16 @@
 
 I think it's silly that there isn't an easy way to check the battery level of a connected Steam Controller from the desktop, so this repository contains Windows utilities for reading Steam Controller battery state through SDL3. It doesn't work for everything (see below), but it's good enough for me.
 
+![System tray icon example](assets/screenshot.png)
+
+Left click to trigger a refresh, right click for a menu (refresh, launch at startup, quit).
+
 This repo currently builds two Windows executables (build them yourself if you don't trust my binaries, it's easy):
 
 - `steam-controller-battery.exe`: console app for enumerating SDL gamepads and printing battery information
 - `steam-controller-battery-tray.exe`: Windows tray app that shows Steam Controller battery state in the notification area
 
-Using `steam-controller-battery` to test, I observe the following:
+Using `steam-controller-battery` to test, I observe the following with a single controller connected:
 | Connection method | Status |
 |-------------------|--------|
 | via puck          | **Working** (*) |
@@ -16,6 +20,8 @@ Using `steam-controller-battery` to test, I observe the following:
 
 - \* — reports wired, on battery, and correct battery percent
 - \** — reports wired, charged, and 100%
+
+I don't know what happens with multiple controllers connected to the puck, it probably just gets stats for one. 
 
 ## Recommended build environment
 
