@@ -1,6 +1,6 @@
 .{
     .name = .steam_controller_battery,
-    .version = "0.2.0",
+    .version = "0.3.0",
     .fingerprint = 0x7b9636801a026e98,
     .minimum_zig_version = "0.15.2",
     .dependencies = .{

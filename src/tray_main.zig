@@ -23,7 +23,6 @@ const tray_message = win.WM_APP + 1;
 const refresh_timer_id: usize = 1;
 const refresh_menu_id: usize = 1000;
 const settings_menu_id: usize = 1003;
-const autostart_menu_id: usize = 1002;
 const quit_menu_id: usize = 1001;
 const reload_settings_message = win.WM_APP + 2;
 const debug_settings_message = win.WM_APP + 3;
@@ -49,8 +48,6 @@ const RuntimeOptions = struct {
 };
 
 const LaunchOptions = struct {
-    interval_ms: ?u32 = null,
-    battery_wait_ms: ?u32 = null,
     autostart_action: enum {
         none,
         enable,
@@ -58,7 +55,6 @@ const LaunchOptions = struct {
     } = .none,
     background: bool = false,
     replace_existing: bool = false,
-    has_user_args: bool = false,
     debug_logging: bool = false,
     show_debug_ui: bool = false,
 };
@@ -209,7 +205,7 @@ fn realMain() !void {
 
     if (launch_options.debug_logging) diagnostic_log.setEnabled(true);
 
-    if (!launch_options.background and !launch_options.has_user_args) {
+    if (!launch_options.background) {
         if (try requestDebugSettingsFromRunningTray()) return;
         return runInitialConfigSingleton(launch_options.show_debug_ui);
     }
@@ -229,7 +225,7 @@ fn realMain() !void {
     }
     std.log.info("tray singleton acquired; loading runtime settings", .{});
 
-    const options = try resolveRuntimeOptions(launch_options);
+    const options = try resolveRuntimeOptions();
 
     var app = App{
         .options = options,
@@ -815,15 +811,8 @@ fn showContextMenu(app: *App) void {
     const menu = win.CreatePopupMenu() orelse return;
     defer _ = win.DestroyMenu(menu);
 
-    const autostart_enabled = isAutostartEnabled() catch false;
     _ = win.AppendMenuA(menu, win.MF_STRING, refresh_menu_id, "Refresh");
     _ = win.AppendMenuA(menu, win.MF_STRING, settings_menu_id, "Settings");
-    _ = win.AppendMenuA(
-        menu,
-        @as(win.UINT, @intCast(win.MF_STRING | (if (autostart_enabled) win.MF_CHECKED else 0))),
-        autostart_menu_id,
-        "Launch at startup",
-    );
     _ = win.AppendMenuA(menu, win.MF_SEPARATOR, 0, null);
     _ = win.AppendMenuA(menu, win.MF_STRING, quit_menu_id, "Quit");
 
@@ -845,11 +834,6 @@ fn showContextMenu(app: *App) void {
         settings_menu_id => {
             showSettings(app, false);
             std.log.info("context-menu Settings handler returned; quitting={}", .{app.quitting});
-        },
-        autostart_menu_id => {
-            const enabled = !autostart_enabled;
-            setAutostartEnabled(enabled) catch {};
-            setStoredAutostartEnabled(enabled) catch {};
         },
         quit_menu_id => {
             std.log.info("Quit selected from tray context menu", .{});
@@ -946,10 +930,8 @@ fn parseArgs() !LaunchOptions {
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--autostart")) {
             result.autostart_action = .enable;
-            result.has_user_args = true;
         } else if (std.mem.eql(u8, arg, "--no-autostart")) {
             result.autostart_action = .disable;
-            result.has_user_args = true;
         } else if (std.mem.eql(u8, arg, "--background")) {
             result.background = true;
         } else if (std.mem.eql(u8, arg, "--replace-existing")) {
@@ -958,15 +940,6 @@ fn parseArgs() !LaunchOptions {
             result.debug_logging = true;
         } else if (std.mem.eql(u8, arg, "--debug")) {
             result.show_debug_ui = true;
-        } else if (std.mem.eql(u8, arg, "--battery-wait-ms")) {
-            const value = args.next() orelse return error.MissingBatteryWait;
-            result.battery_wait_ms = try std.fmt.parseInt(u32, value, 10);
-            result.has_user_args = true;
-        } else if (std.mem.eql(u8, arg, "--interval")) {
-            const value = args.next() orelse return error.MissingInterval;
-            result.interval_ms = try std.fmt.parseInt(u32, value, 10);
-            if (result.interval_ms == 0) return error.InvalidInterval;
-            result.has_user_args = true;
         } else {
             return error.UnknownArgument;
         }
@@ -975,11 +948,11 @@ fn parseArgs() !LaunchOptions {
     return result;
 }
 
-fn resolveRuntimeOptions(launch_options: LaunchOptions) !RuntimeOptions {
+fn resolveRuntimeOptions() !RuntimeOptions {
     const stored = try loadStoredConfig();
     return .{
-        .interval_ms = launch_options.interval_ms orelse stored.interval_ms,
-        .battery_wait_ms = launch_options.battery_wait_ms orelse stored.battery_wait_ms,
+        .interval_ms = stored.interval_ms,
+        .battery_wait_ms = stored.battery_wait_ms,
     };
 }
 
@@ -1473,7 +1446,7 @@ fn windowProc(
         reload_settings_message => {
             std.log.info("processing settings reload request", .{});
             if (w_param != 0) {
-                const options = resolveRuntimeOptions(.{}) catch |err| {
+                const options = resolveRuntimeOptions() catch |err| {
                     std.log.err("could not reload settings: {t}", .{err});
                     return 0;
                 };

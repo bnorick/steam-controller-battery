@@ -2,14 +2,16 @@
 
 I think it's silly that there isn't an easy way to check the battery level of a connected Steam Controller from the desktop, so this repository contains Windows utilities for reading Steam Controller battery state through SDL3. It doesn't work for everything (see below), but it's good enough for me.
 
-![System tray icon example](assets/screenshot.png)
+![Settings window](assets/settings-window.png)
 
-**Usage:** Left click to trigger a refresh, right click for a menu (refresh, launch at startup, quit).
+![System tray icon example](assets/tray-icon.png)
+
+**Usage:** Launch the app, change settings if desired, then press Ok to set up the tray icon. Left click the tray icon to trigger a refresh, right click for a context menu (refresh, settings, quit).
 
 You can [download](https://github.com/bnorick/steam-controller-battery/releases/latest) binaries for the latest release. This repo currently builds two Windows executables (build them yourself if you don't trust my binaries, it's easy):
 
-- `steam-controller-battery.exe`: console app for enumerating SDL gamepads and printing battery information
 - `steam-controller-battery-tray.exe`: Windows tray app that shows Steam Controller battery state in the notification area
+- `steam-controller-battery.exe`: console app for enumerating SDL gamepads and printing battery information
 
 Using `steam-controller-battery` to test, I observe the following with a single controller connected:
 | Connection method | Status |
@@ -58,21 +60,17 @@ mise run build-sdl-test
 
 ## Run On Windows
 
-After building in WSL, copy the `.exe` you want to use from `zig-out/bin/` to Windows and run it there.
+After building in WSL, copy the `.exe` you want to use from `zig-out/bin/` to Windows and run it there via double click or from the terminal.
 
 Example:
 
 ```powershell
-steam-controller-battery-tray.exe --interval 15000 --battery-wait-ms 5000
+steam-controller-battery-tray.exe
 ```
 
 Useful tray app flags:
 
-- `--interval <ms>`: how often to refresh battery state, default `15000`
-- `--battery-wait-ms <ms>`: how long to wait for battery telemetry before giving up, default `5000`
 - `--debug`: open Settings with the runtime debug-logging control visible
-- `--autostart`: register the tray app in the current user's Windows startup entries and exit
-- `--no-autostart`: remove the tray app from the current user's Windows startup entries and exit
 
 ## Console Tool
 
